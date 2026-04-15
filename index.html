@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Myers Newsletter Builder</title>
+  <meta name="description" content="Build and customize professional weekly newsletters for Myers Home Buyers. Drag and drop images, edit event details, and copy formatted HTML for email." />
+  <link rel="icon" type="image/png" href="myers-logo.png" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useCallback } = React;
+
+
+const GOLD = "#D4A843";
+const GOLD_DARK = "#B08A2E";
+const GOLD_LIGHT = "#E8C96A";
+const BLACK = "#111111";
+
+const defaultRows = [
+  {
+    id: 1,
+    day: "Wednesday",
+    time: "9:00 AM",
+    title: "Protecting Your Deals: Insurance Strategies",
+    host: "Joseph Christy w/ Goosehead × Myers",
+    description:
+      "Insurance isn't just a box to check — it can make or break your deal. In this session, I'll teach exactly how to spot deal-killing risks before they cost you time, money, or a closing.",
+    linkText: "Virtual ID Card",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 2,
+    day: "Wednesday",
+    time: "6:15 PM",
+    title: "Electric Shuffle Social",
+    host: "Company Social Event",
+    description:
+      "Food and drinks provided. If you're not there you're an absolute square.",
+    linkText: "Visit Website",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 3,
+    day: "Thursday",
+    time: "4:00 PM",
+    title: "Mentor / Team Leader Selection Session",
+    host: "Josh Deshong",
+    description:
+      "This is for agents interested in stepping into a Mentor or Team Leader role at Myers Home Buyers.",
+    linkText: "Learn More",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 4,
+    day: "Friday",
+    time: "9:00 AM – 4:00 PM",
+    title: "Myers Meet & Work",
+    host: "In-Person Coworking Day",
+    description:
+      "If you're not out slaying showings, come join us for an in-person meet and work.",
+    linkText: "RSVP",
+    linkUrl: "#",
+    imageData: null,
+  },
+];
+
+const defaultFooter = {
+  phone: "+1 (234) 567-890",
+  website: "www.myershomebuyers.com",
+  email: "hello@myershomebuyers.com",
+};
+
+/* ───────── tiny helpers ───────── */
+const readFileAsDataURL = (file) =>
+  new Promise((res) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.readAsDataURL(file);
+  });
+
+/* ───────── IMAGE UPLOAD BOX (with Drag & Drop) ───────── */
+function ImageUpload({ imageData, onUpload, label }) {
+  const ref = useRef();
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handle = async (e) => {
+    const f = e.target.files?.[0];
+    if (f) onUpload(await readFileAsDataURL(f));
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+  
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f && f.type.startsWith('image/')) onUpload(await readFileAsDataURL(f));
+  };
+
+  return (
+    <div
+      onClick={() => ref.current.click()}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{
+        width: "100%",
+        height: 120,
+        borderRadius: 8,
+        border: `2px dashed ${imageData ? GOLD : (isDragging ? GOLD_DARK : "#ccc")}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        overflow: "hidden",
+        background: imageData ? "none" : (isDragging ? "#fefdfa" : "#faf8f4"),
+        position: "relative",
+        transition: "all 0.2s ease"
+      }}
+    >
+      {imageData ? (
+        <img
+          src={imageData}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <span style={{ color: "#999", fontSize: 13, textAlign: "center", padding: 8 }}>
+          {isDragging ? "📷 Drop image here" : (label || "📷 Click or drag image to upload")}
+        </span>
+      )}
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        onChange={handle}
+        style={{ display: "none" }}
+      />
+    </div>
+  );
+}
+
+/* ───────── TEXT INPUT ───────── */
+function Field({ label, value, onChange, multiline, small }) {
+  const shared = {
+    width: "100%",
+    padding: small ? "6px 10px" : "8px 12px",
+    border: "1px solid #ddd",
+    borderRadius: 6,
+    fontSize: small ? 13 : 14,
+    fontFamily: "'DM Sans', sans-serif",
+    outline: "none",
+    transition: "border-color 0.2s",
+    background: "#fff",
+  };
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 1.5,
+          color: "#888",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ ...shared, resize: "vertical" }}
+          onFocus={(e) => (e.target.style.borderColor = GOLD)}
+          onBlur={(e) => (e.target.style.borderColor = "#ddd")}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={shared}
+          onFocus={(e) => (e.target.style.borderColor = GOLD)}
+          onBlur={(e) => (e.target.style.borderColor = "#ddd")}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── EVENT ROW EDITOR CARD ───────── */
+function RowEditor({ row, index, onChange, onRemove, total }) {
+  const update = (key, val) => onChange({ ...row, [key]: val });
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e8e5df",
+        borderRadius: 10,
+        padding: 20,
+        marginBottom: 16,
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: 2,
+            color: GOLD_DARK,
+          }}
+        >
+          Event {index + 1}{" "}
+          <span style={{ color: "#bbb", fontWeight: 400 }}>
+            — image {index % 2 === 0 ? "left" : "right"}
+          </span>
+        </span>
+        {total > 1 && (
+          <button
+            onClick={onRemove}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#c44",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      <ImageUpload
+        imageData={row.imageData}
+        onUpload={(d) => update("imageData", d)}
+        label="📷 Click or drag & drop event photo"
+      />
+      <div style={{ height: 14 }} />
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Day" value={row.day} onChange={(v) => update("day", v)} small />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field
+            label="Time"
+            value={row.time}
+            onChange={(v) => update("time", v)}
+            small
+          />
+        </div>
+      </div>
+      <Field label="Title" value={row.title} onChange={(v) => update("title", v)} />
+      <Field label="Host / Subtitle" value={row.host} onChange={(v) => update("host", v)} />
+      <Field
+        label="Description"
+        value={row.description}
+        onChange={(v) => update("description", v)}
+        multiline
+      />
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field
+            label="Link Text"
+            value={row.linkText}
+            onChange={(v) => update("linkText", v)}
+            small
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field
+            label="Link URL"
+            value={row.linkUrl}
+            onChange={(v) => update("linkUrl", v)}
+            small
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────── PREVIEW ROW ───────── */
+function PreviewRow({ row, index }) {
+  const reversed = index % 2 !== 0;
+  const placeholderBg = `linear-gradient(135deg, ${GOLD}33, ${GOLD}11)`;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: reversed ? "row-reverse" : "row",
+        minHeight: 240,
+        borderBottom: "1px solid #edebe6",
+      }}
+    >
+      <div
+        style={{
+          width: "42%",
+          minHeight: 240,
+          background: row.imageData ? "none" : placeholderBg,
+          flexShrink: 0,
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {row.imageData ? (
+          <img
+            src={row.imageData}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <span style={{ color: GOLD_DARK, fontSize: 13, opacity: 0.6 }}>No image</span>
+        )}
+      </div>
+      <div
+        style={{
+          width: "58%",
+          padding: "30px 34px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          borderLeft: !reversed ? `4px solid ${GOLD}` : "none",
+          borderRight: reversed ? `4px solid ${GOLD}` : "none",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'Playfair Display', serif",
+            fontWeight: 900,
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: 4,
+            color: GOLD_DARK,
+            marginBottom: 2,
+          }}
+        >
+          {row.day}
+        </div>
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 13,
+            color: GOLD_DARK,
+            marginBottom: 10,
+            letterSpacing: 0.5,
+          }}
+        >
+          {row.time}
+        </div>
+        <div
+          style={{
+            fontFamily: "'Playfair Display', serif",
+            fontWeight: 900,
+            fontSize: 22,
+            lineHeight: 1.2,
+            color: BLACK,
+            marginBottom: 10,
+          }}
+        >
+          {row.title}
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a", marginBottom: 8 }}>
+          {row.host}
+        </div>
+        <div
+          style={{ fontSize: 13.5, lineHeight: 1.7, color: "#3d3d3d", marginBottom: 14 }}
+        >
+          {row.description}
+        </div>
+        {row.linkText && (
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: 12,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: GOLD_DARK,
+            }}
+          >
+            {row.linkText} →
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ───────── GENERATE EMAIL HTML ───────── */
+function generateEmailHTML({ logoData, dateRange, rows, footer }) {
+  const rowsHTML = rows
+    .map((row, i) => {
+      const reversed = i % 2 !== 0;
+      const imgCell = `<td style="width:42%;padding:0;vertical-align:top;">${
+        row.imageData
+          ? `<img src="${row.imageData}" alt="" style="width:100%;height:auto;display:block;" />`
+          : `<div style="background:linear-gradient(135deg,${GOLD}33,${GOLD}11);height:240px;"></div>`
+      }</td>`;
+      const borderSide = reversed ? "border-right" : "border-left";
+      const textCell = `<td style="width:58%;padding:30px 34px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
+        <div style="font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:4px;color:${GOLD_DARK};margin-bottom:2px;font-family:Georgia,serif;">${row.day}</div>
+        <div style="font-weight:700;font-size:13px;color:${GOLD_DARK};margin-bottom:10px;">${row.time}</div>
+        <div style="font-weight:900;font-size:22px;line-height:1.2;color:${BLACK};margin-bottom:10px;font-family:Georgia,serif;">${row.title}</div>
+        <div style="font-weight:700;font-size:13px;color:#1a1a1a;margin-bottom:8px;">${row.host}</div>
+        <div style="font-size:14px;line-height:1.7;color:#3d3d3d;margin-bottom:14px;">${row.description}</div>
+        ${row.linkText ? `<a href="${row.linkUrl || "#"}" style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:${GOLD_DARK};text-decoration:none;">${row.linkText} →</a>` : ""}
+      </td>`;
+      const cells = reversed ? textCell + imgCell : imgCell + textCell;
+      return `<tr><td style="padding:0;"><table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #edebe6;"><tr>${cells}</tr></table></td></tr>`;
+    })
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#faf8f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="720" cellpadding="0" cellspacing="0" align="center" style="background:#ffffff;box-shadow:0 4px 40px rgba(0,0,0,0.06);">
+  <!-- HEADER -->
+  <tr><td style="padding:20px 40px;border-bottom:3px solid ${GOLD};background:#ffffff;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="vertical-align:middle;">${logoData ? `<img src="${logoData}" alt="Myers Home Buyers" style="height:52px;width:auto;" />` : `<span style="font-family:Georgia,serif;font-weight:900;font-size:22px;color:${BLACK};">Myers <span style="color:${GOLD};">Home Buyers</span></span>`}</td>
+      <td style="text-align:right;vertical-align:middle;"><span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#7a7a7a;">Weekly Newsletter</span></td>
+    </tr></table>
+  </td></tr>
+  <!-- DATE BANNER -->
+  <tr><td style="background:linear-gradient(135deg,${GOLD_DARK},${GOLD},${GOLD_LIGHT});text-align:center;padding:14px 40px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:4px;color:${BLACK};">${dateRange}</td></tr>
+  <!-- ROWS -->
+  ${rowsHTML}
+  <!-- FOOTER -->
+  <tr><td style="background:${BLACK};padding:28px 40px;border-top:3px solid ${GOLD};">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="color:#ccc;font-size:13px;">📞 ${footer.phone}</td>
+      <td style="color:#ccc;font-size:13px;text-align:center;">🌐 ${footer.website}</td>
+      <td style="color:#ccc;font-size:13px;text-align:right;">✉️ ${footer.email}</td>
+    </tr></table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+/* ═══════════════ MAIN APP ═══════════════ */
+function NewsletterBuilder() {
+  const [tab, setTab] = useState("edit");
+  const [logoData, setLogoData] = useState(null);
+  const [dateRange, setDateRange] = useState("Week of April 14 – 18, 2026");
+  const [rows, setRows] = useState(defaultRows);
+  const [footer, setFooter] = useState(defaultFooter);
+  const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const previewRef = useRef();
+  let nextId = useRef(5);
+
+  const updateRow = (id, updated) =>
+    setRows((r) => r.map((row) => (row.id === id ? updated : row)));
+  const removeRow = (id) => setRows((r) => r.filter((row) => row.id !== id));
+  const addRow = () => {
+    setRows((r) => [
+      ...r,
+      {
+        id: nextId.current++,
+        day: "Day",
+        time: "Time",
+        title: "Event Title",
+        host: "Host",
+        description: "Event description goes here.",
+        linkText: "Learn More",
+        linkUrl: "#",
+        imageData: null,
+      },
+    ]);
+  };
+
+  const handleCopyRendered = useCallback(async () => {
+    try {
+      const html = generateEmailHTML({ logoData, dateRange, rows, footer });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }) }),
+      ]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = generateEmailHTML({ logoData, dateRange, rows, footer });
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    }
+  }, [logoData, dateRange, rows, footer]);
+
+  const handleCopyCode = useCallback(() => {
+    const html = generateEmailHTML({ logoData, dateRange, rows, footer });
+    const ta = document.createElement("textarea");
+    ta.value = html;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  }, [logoData, dateRange, rows, footer]);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f5f3ee",
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
+
+      {/* ── TOP BAR ── */}
+      <div
+        style={{
+          background: "#ffffff",
+          padding: "16px 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: `3px solid ${GOLD}`,
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <img
+            src="myers-logo.png"
+            alt="Myers Home Buyers"
+            style={{ height: 36, width: "auto" }}
+          />
+          <span
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 700,
+              fontSize: 16,
+              color: "#aaa",
+              marginLeft: 12,
+              paddingLeft: 12,
+              borderLeft: "2px solid #eee",
+            }}
+          >
+            Newsletter Builder
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={handleCopyRendered}
+            style={{
+              background: `linear-gradient(135deg, ${GOLD_DARK}, ${GOLD})`,
+              color: BLACK,
+              border: "none",
+              padding: "8px 20px",
+              borderRadius: 6,
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              letterSpacing: 0.5,
+            }}
+          >
+            {copied ? "✓ Copied!" : "📋 Copy for Email"}
+          </button>
+          <button
+            onClick={handleCopyCode}
+            style={{
+              background: "transparent",
+              color: "#aaa",
+              border: `1px solid #444`,
+              padding: "8px 16px",
+              borderRadius: 6,
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            {copiedCode ? "✓ Copied!" : "{ } HTML Code"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── TABS ── */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 0,
+          padding: "16px 24px 0",
+        }}
+      >
+        {["edit", "preview"].map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: "10px 32px",
+              border: "none",
+              borderBottom: tab === t ? `3px solid ${GOLD}` : "3px solid transparent",
+              background: tab === t ? "#fff" : "transparent",
+              fontWeight: 700,
+              fontSize: 13,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: tab === t ? BLACK : "#999",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              borderRadius: "8px 8px 0 0",
+            }}
+          >
+            {t === "edit" ? "✏️ Editor" : "👁 Preview"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CONTENT ── */}
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px 60px" }}>
+        {tab === "edit" ? (
+          <>
+            {/* Header settings */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e8e5df",
+                borderRadius: 10,
+                padding: 20,
+                marginBottom: 16,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                  color: GOLD_DARK,
+                  display: "block",
+                  marginBottom: 14,
+                }}
+              >
+                Header
+              </span>
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                <div style={{ width: 160, flexShrink: 0 }}>
+                  <ImageUpload
+                    imageData={logoData}
+                    onUpload={setLogoData}
+                    label="📷 Upload logo"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Field
+                    label="Date Range"
+                    value={dateRange}
+                    onChange={setDateRange}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Event rows */}
+            {rows.map((row, i) => (
+              <RowEditor
+                key={row.id}
+                row={row}
+                index={i}
+                total={rows.length}
+                onChange={(updated) => updateRow(row.id, updated)}
+                onRemove={() => removeRow(row.id)}
+              />
+            ))}
+
+            <button
+              onClick={addRow}
+              style={{
+                width: "100%",
+                padding: "14px",
+                border: `2px dashed #ccc`,
+                borderRadius: 10,
+                background: "none",
+                fontWeight: 700,
+                fontSize: 14,
+                color: "#999",
+                cursor: "pointer",
+                marginBottom: 16,
+              }}
+            >
+              + Add Event Row
+            </button>
+
+            {/* Footer settings */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e8e5df",
+                borderRadius: 10,
+                padding: 20,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                  color: GOLD_DARK,
+                  display: "block",
+                  marginBottom: 14,
+                }}
+              >
+                Footer
+              </span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <Field
+                    label="Phone"
+                    value={footer.phone}
+                    onChange={(v) => setFooter({ ...footer, phone: v })}
+                    small
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Field
+                    label="Website"
+                    value={footer.website}
+                    onChange={(v) => setFooter({ ...footer, website: v })}
+                    small
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Field
+                    label="Email"
+                    value={footer.email}
+                    onChange={(v) => setFooter({ ...footer, email: v })}
+                    small
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ── PREVIEW TAB ── */
+          <div
+            ref={previewRef}
+            style={{
+              background: "#fff",
+              boxShadow: "0 4px 40px rgba(0,0,0,0.06)",
+              borderRadius: 4,
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "20px 40px",
+                borderBottom: `3px solid ${GOLD}`,
+              }}
+            >
+              <div>
+                {logoData ? (
+                  <img
+                    src={logoData}
+                    alt="Logo"
+                    style={{ height: 52, width: "auto" }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontFamily: "'Playfair Display', serif",
+                      fontWeight: 900,
+                      fontSize: 22,
+                      color: BLACK,
+                    }}
+                  >
+                    Myers{" "}
+                    <span style={{ color: GOLD }}>Home Buyers</span>
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 3,
+                  color: "#7a7a7a",
+                }}
+              >
+                Weekly Newsletter
+              </span>
+            </div>
+
+            {/* Date banner */}
+            <div
+              style={{
+                background: `linear-gradient(135deg, ${GOLD_DARK}, ${GOLD}, ${GOLD_LIGHT})`,
+                textAlign: "center",
+                padding: "14px 40px",
+                fontWeight: 700,
+                fontSize: 13,
+                textTransform: "uppercase",
+                letterSpacing: 4,
+                color: BLACK,
+              }}
+            >
+              {dateRange}
+            </div>
+
+            {/* Event rows */}
+            {rows.map((row, i) => (
+              <PreviewRow key={row.id} row={row} index={i} />
+            ))}
+
+            {/* Footer */}
+            <div
+              style={{
+                background: BLACK,
+                padding: "28px 40px",
+                display: "flex",
+                justifyContent: "space-between",
+                borderTop: `3px solid ${GOLD}`,
+              }}
+            >
+              <span style={{ color: "#ccc", fontSize: 13 }}>📞 {footer.phone}</span>
+              <span style={{ color: "#ccc", fontSize: 13 }}>🌐 {footer.website}</span>
+              <span style={{ color: "#ccc", fontSize: 13 }}>✉️ {footer.email}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<NewsletterBuilder />);
+  </script>
+</body>
+</html>
