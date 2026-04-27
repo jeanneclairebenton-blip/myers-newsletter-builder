@@ -207,17 +207,25 @@ function Field({ label, value, onChange, multiline, small }) {
 }
 
 /* ───────── EVENT ROW EDITOR CARD ───────── */
-function RowEditor({ row, index, onChange, onRemove, total }) {
+function RowEditor({ row, index, onChange, onRemove, onDuplicate, total, isDragOver, onDragStart, onDragOver, onDragEnd, onDrop }) {
   const update = (key, val) => onChange({ ...row, [key]: val });
   return (
     <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDrop={onDrop}
       style={{
         background: "#fff",
-        border: "1px solid #e8e5df",
+        border: isDragOver ? `2px solid ${GOLD}` : "1px solid #e8e5df",
         borderRadius: 10,
         padding: 20,
         marginBottom: 16,
         position: "relative",
+        transition: "border-color 0.2s, box-shadow 0.2s, transform 0.15s",
+        boxShadow: isDragOver ? `0 0 16px ${GOLD}33` : "none",
+        cursor: "grab",
       }}
     >
       <div
@@ -228,35 +236,71 @@ function RowEditor({ row, index, onChange, onRemove, total }) {
           marginBottom: 14,
         }}
       >
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 800,
-            textTransform: "uppercase",
-            letterSpacing: 2,
-            color: GOLD_DARK,
-          }}
-        >
-          Event {index + 1}{" "}
-          <span style={{ color: "#bbb", fontWeight: 400 }}>
-            — image {index % 2 === 0 ? "left" : "right"}
-          </span>
-        </span>
-        {total > 1 && (
-          <button
-            onClick={onRemove}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
             style={{
-              background: "none",
-              border: "none",
-              color: "#c44",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
+              fontSize: 18,
+              cursor: "grab",
+              color: "#bbb",
+              userSelect: "none",
+              lineHeight: 1,
+            }}
+            title="Drag to reorder"
+          >
+            ⠿
+          </span>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: GOLD_DARK,
             }}
           >
-            Remove
+            Event {index + 1}{" "}
+            <span style={{ color: "#bbb", fontWeight: 400 }}>
+              — image {index % 2 === 0 ? "left" : "right"}
+            </span>
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+            style={{
+              background: "none",
+              border: `1px solid ${GOLD}`,
+              color: GOLD_DARK,
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "4px 12px",
+              borderRadius: 5,
+              letterSpacing: 0.5,
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.target.style.background = GOLD; e.target.style.color = '#111'; }}
+            onMouseLeave={(e) => { e.target.style.background = 'none'; e.target.style.color = GOLD_DARK; }}
+            title="Duplicate this event"
+          >
+            ⧉ Duplicate
           </button>
-        )}
+          {total > 1 && (
+            <button
+              onClick={onRemove}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#c44",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
       </div>
       <ImageUpload
         imageData={row.imageData}
@@ -357,11 +401,14 @@ function PreviewRow({ row, index }) {
           style={{
             fontFamily: "'Playfair Display', serif",
             fontWeight: 900,
-            fontSize: 11,
+            fontSize: 28,
             textTransform: "uppercase",
-            letterSpacing: 4,
+            letterSpacing: 5,
             color: GOLD_DARK,
-            marginBottom: 2,
+            marginBottom: 6,
+            borderBottom: `3px solid ${GOLD}44`,
+            paddingBottom: 6,
+            display: "inline-block",
           }}
         >
           {row.day}
@@ -427,7 +474,7 @@ function generateEmailHTML({ logoData, dateRange, rows, footer }) {
       }</td>`;
       const borderSide = reversed ? "border-right" : "border-left";
       const textCell = `<td style="width:58%;padding:30px 34px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
-        <div style="font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:4px;color:${GOLD_DARK};margin-bottom:2px;font-family:Georgia,serif;">${row.day}</div>
+        <div style="font-weight:900;font-size:28px;text-transform:uppercase;letter-spacing:5px;color:${GOLD_DARK};margin-bottom:6px;font-family:Georgia,serif;border-bottom:3px solid ${GOLD}44;padding-bottom:6px;display:inline-block;">${row.day}</div>
         <div style="font-weight:700;font-size:13px;color:${GOLD_DARK};margin-bottom:10px;">${row.time}</div>
         <div style="font-weight:900;font-size:22px;line-height:1.2;color:${BLACK};margin-bottom:10px;font-family:Georgia,serif;">${row.title}</div>
         <div style="font-weight:700;font-size:13px;color:#1a1a1a;margin-bottom:8px;">${row.host}</div>
@@ -475,12 +522,24 @@ function NewsletterBuilder() {
   const [footer, setFooter] = useState(defaultFooter);
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [draggedId, setDraggedId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
   const previewRef = useRef();
   let nextId = useRef(5);
 
   const updateRow = (id, updated) =>
     setRows((r) => r.map((row) => (row.id === id ? updated : row)));
   const removeRow = (id) => setRows((r) => r.filter((row) => row.id !== id));
+  const duplicateRow = (id) => {
+    setRows((r) => {
+      const idx = r.findIndex((row) => row.id === id);
+      if (idx === -1) return r;
+      const clone = { ...r[idx], id: nextId.current++, imageData: r[idx].imageData };
+      const newRows = [...r];
+      newRows.splice(idx + 1, 0, clone);
+      return newRows;
+    });
+  };
   const addRow = () => {
     setRows((r) => [
       ...r,
@@ -496,6 +555,42 @@ function NewsletterBuilder() {
         imageData: null,
       },
     ]);
+  };
+
+  /* ── Drag-and-drop handlers ── */
+  const handleDragStart = (id) => (e) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+    e.currentTarget.style.opacity = "0.4";
+  };
+  const handleDragOver = (id) => (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverId(id);
+  };
+  const handleDrop = (targetId) => (e) => {
+    e.preventDefault();
+    if (draggedId == null || draggedId === targetId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+    setRows((prev) => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex((r) => r.id === draggedId);
+      const toIdx = arr.findIndex((r) => r.id === targetId);
+      const [moved] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, moved);
+      return arr;
+    });
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = "1";
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   const handleCopyRendered = useCallback(async () => {
@@ -699,6 +794,12 @@ function NewsletterBuilder() {
                 total={rows.length}
                 onChange={(updated) => updateRow(row.id, updated)}
                 onRemove={() => removeRow(row.id)}
+                onDuplicate={() => duplicateRow(row.id)}
+                isDragOver={dragOverId === row.id}
+                onDragStart={handleDragStart(row.id)}
+                onDragOver={handleDragOver(row.id)}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop(row.id)}
               />
             ))}
 
