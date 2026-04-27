@@ -25,49 +25,100 @@ const BLACK = "#111111";
 const defaultRows = [
   {
     id: 1,
-    day: "Wednesday",
-    time: "9:00 AM",
-    title: "Protecting Your Deals: Insurance Strategies",
-    host: "Joseph Christy w/ Goosehead × Myers",
-    description:
-      "Insurance isn't just a box to check — it can make or break your deal. In this session, I'll teach exactly how to spot deal-killing risks before they cost you time, money, or a closing.",
-    linkText: "Virtual ID Card",
+    day: "Monday",
+    time: "10:00 AM",
+    title: "Evaluating a Deal 101, 201, 301 (w/ Josh)",
+    host: "Josh Deshong",
+    description: "",
+    linkText: "",
     linkUrl: "#",
     imageData: null,
   },
   {
     id: 2,
-    day: "Wednesday",
-    time: "6:15 PM",
-    title: "Electric Shuffle Social",
-    host: "Company Social Event",
-    description:
-      "Food and drinks provided. If you're not there you're an absolute square.",
+    day: "Monday",
+    time: "10:00 AM",
+    title: "Acquisitions 101 & 102 (w/ J.T.)",
+    host: "J.T.",
+    description: "",
     linkText: "Visit Website",
     linkUrl: "#",
     imageData: null,
   },
   {
     id: 3,
-    day: "Thursday",
-    time: "4:00 PM",
-    title: "Mentor / Team Leader Selection Session",
-    host: "Josh Deshong",
-    description:
-      "This is for agents interested in stepping into a Mentor or Team Leader role at Myers Home Buyers.",
-    linkText: "Learn More",
+    day: "Tuesday",
+    time: "9:00 AM \u2013 4:00 PM",
+    title: "Myers Meet & Work\u2615\uFE0F",
+    host: "In-Person Co-working Day",
+    description: "Located in: Watermark Community Church \u2022 7540 Lyndon B Johnson Fwy, Dallas, TX 75251",
+    linkText: "",
     linkUrl: "#",
     imageData: null,
   },
   {
     id: 4,
-    day: "Friday",
-    time: "9:00 AM – 4:00 PM",
-    title: "Myers Meet & Work",
-    host: "In-Person Coworking Day",
-    description:
-      "If you're not out slaying showings, come join us for an in-person meet and work.",
-    linkText: "RSVP",
+    day: "Tuesday",
+    time: "10:00 AM",
+    title: "Evaluating a Deal 101, 201, 301 (w/ Josh)",
+    host: "Josh Deshong",
+    description: "",
+    linkText: "",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 5,
+    day: "Tuesday",
+    time: "2:00 PM",
+    title: "Ask Me Anything (w/ JT)",
+    host: "J.T.",
+    description: "",
+    linkText: "",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 6,
+    day: "Tuesday",
+    time: "5:00 PM \u2013 7:00 PM",
+    title: "Poker Night Baby Shower!!",
+    host: "Julia \u2022 11430 Cherry Ridge Ct, Dallas, TX 75229",
+    description: "Bring $30 cash, 2 packs of diapers, and your best poker face to support our dad\u2019s growing families: Asa and Jordan!",
+    linkText: "",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 7,
+    day: "Wednesday",
+    time: "10:00 AM",
+    title: "From Contract to Close: Mastering the Title Process",
+    host: "Chris Tarrant \u2022 1836 Title \u00D7 Myers",
+    description: "Every investor-agent needs to understand what happens behind the scenes at closing. Learn how title impacts your deals, how to spot risks early, and how to structure transactions that actually make it to the finish line.",
+    linkText: "",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 8,
+    day: "Wednesday",
+    time: "2:00 PM",
+    title: "Marketing Strategies: Own Your Pipeline & Build Your Deal Distribution Machine",
+    host: "Myers Home Buyers",
+    description: "What we'll cover: Build your personal CRM in Google Sheets (track, organize, and actually use your data) \u2022 Strategies to launch targeted email campaigns \u2022 Bulk upload contacts into Google Contacts + your phone and label by buy box for targeted texting \u2022 Use the flyer generator to market deals instantly",
+    linkText: "",
+    linkUrl: "#",
+    imageData: null,
+  },
+  {
+    id: 9,
+    day: "Thursday",
+    time: "9:00 AM \u2013 4:00 PM",
+    title: "Myers Meet & Work\u2615\uFE0F",
+    host: "In-Person Co-working Day",
+    description: "Located in: Watermark Community Church \u2022 7540 Lyndon B Johnson Fwy, Dallas, TX 75251",
+    linkText: "",
     linkUrl: "#",
     imageData: null,
   },
@@ -517,7 +568,7 @@ function generateEmailHTML({ logoData, dateRange, rows, footer }) {
 function NewsletterBuilder() {
   const [tab, setTab] = useState("edit");
   const [logoData, setLogoData] = useState(null);
-  const [dateRange, setDateRange] = useState("Week of April 14 – 18, 2026");
+  const [dateRange, setDateRange] = useState("Week of April 27 \u2013 May 1, 2026");
   const [rows, setRows] = useState(defaultRows);
   const [footer, setFooter] = useState(defaultFooter);
   const [copied, setCopied] = useState(false);
@@ -525,7 +576,7 @@ function NewsletterBuilder() {
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const previewRef = useRef();
-  let nextId = useRef(5);
+  let nextId = useRef(10);
 
   const updateRow = (id, updated) =>
     setRows((r) => r.map((row) => (row.id === id ? updated : row)));
