@@ -360,14 +360,14 @@ function PreviewRow({ row, index }) {
       style={{
         display: "flex",
         flexDirection: reversed ? "row-reverse" : "row",
-        minHeight: 240,
+        height: 280,
         borderBottom: "1px solid #edebe6",
       }}
     >
       <div
         style={{
           width: "42%",
-          minHeight: 240,
+          height: 280,
           background: row.imageData ? "none" : placeholderBg,
           flexShrink: 0,
           overflow: "hidden",
@@ -464,17 +464,37 @@ function PreviewRow({ row, index }) {
 
 /* ───────── GENERATE EMAIL HTML ───────── */
 function generateEmailHTML({ logoData, dateRange, rows, footer }) {
+  /* Fixed pixel dimensions for consistent email rendering.
+     Total width = 720px  →  image col = 302px, text col = 418px.
+     Row height locked at 280px so every event looks identical. */
+  const IMG_W = 302;
+  const TEXT_W = 418;
+  const ROW_H = 280;
+
   const rowsHTML = rows
     .map((row, i) => {
       const reversed = i % 2 !== 0;
-      const imgCell = `<td style="width:42%;padding:0;vertical-align:top;">${
-        row.imageData
-          ? `<img src="${row.imageData}" alt="" style="width:100%;height:auto;display:block;" />`
-          : `<div style="background:linear-gradient(135deg,${GOLD}33,${GOLD}11);height:240px;"></div>`
-      }</td>`;
+
+      /* Image cell: uses background-image + background-size:cover for
+         uniform cropping (works in Gmail, Apple Mail, Yahoo, Outlook.com).
+         Also includes an <img> fallback clipped with overflow:hidden for
+         clients that strip background styles. */
+      const imgCell = row.imageData
+        ? `<td width="${IMG_W}" height="${ROW_H}" style="width:${IMG_W}px;height:${ROW_H}px;padding:0;vertical-align:top;background-image:url('${row.imageData}');background-size:cover;background-position:center center;background-repeat:no-repeat;">
+            <!--[if gte mso 9]>
+            <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${IMG_W}px;height:${ROW_H}px;">
+              <v:fill type="frame" src="${row.imageData}" />
+            </v:rect>
+            <![endif]-->
+            <div style="width:${IMG_W}px;height:${ROW_H}px;overflow:hidden;font-size:0;line-height:0;">
+              <img src="${row.imageData}" alt="" width="${IMG_W}" style="width:${IMG_W}px;min-height:${ROW_H}px;display:block;object-fit:cover;" />
+            </div>
+          </td>`
+        : `<td width="${IMG_W}" height="${ROW_H}" style="width:${IMG_W}px;height:${ROW_H}px;padding:0;vertical-align:top;background:linear-gradient(135deg,${GOLD}33,${GOLD}11);"></td>`;
+
       const borderSide = reversed ? "border-right" : "border-left";
-      const textCell = `<td style="width:58%;padding:30px 34px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
-        <div style="font-weight:900;font-size:28px;text-transform:uppercase;letter-spacing:5px;color:${GOLD_DARK};margin-bottom:6px;font-family:Georgia,serif;border-bottom:3px solid ${GOLD}44;padding-bottom:6px;display:inline-block;">${row.day}</div>
+      const textCell = `<td width="${TEXT_W}" style="width:${TEXT_W}px;padding:30px 34px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
+        <div style="font-weight:900;font-size:28px;text-transform:uppercase;letter-spacing:5px;color:${GOLD_DARK};margin-bottom:6px;font-family:Georgia,serif;border-bottom:3px solid ${GOLD}44;padding-bottom:6px;">${row.day}</div>
         <div style="font-weight:700;font-size:13px;color:${GOLD_DARK};margin-bottom:10px;">${row.time}</div>
         <div style="font-weight:900;font-size:22px;line-height:1.2;color:${BLACK};margin-bottom:10px;font-family:Georgia,serif;">${row.title}</div>
         <div style="font-weight:700;font-size:13px;color:#1a1a1a;margin-bottom:8px;">${row.host}</div>
@@ -482,14 +502,17 @@ function generateEmailHTML({ logoData, dateRange, rows, footer }) {
         ${row.linkText ? `<a href="${row.linkUrl || "#"}" style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:${GOLD_DARK};text-decoration:none;">${row.linkText} →</a>` : ""}
       </td>`;
       const cells = reversed ? textCell + imgCell : imgCell + textCell;
-      return `<tr><td style="padding:0;"><table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #edebe6;"><tr>${cells}</tr></table></td></tr>`;
+      return `<tr><td style="padding:0;"><table width="720" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #edebe6;table-layout:fixed;"><tr>${cells}</tr></table></td></tr>`;
     })
     .join("\n");
 
   return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!--[if gte mso 9]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+</head>
 <body style="margin:0;padding:0;background:#faf8f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-<table width="720" cellpadding="0" cellspacing="0" align="center" style="background:#ffffff;box-shadow:0 4px 40px rgba(0,0,0,0.06);">
+<table width="720" cellpadding="0" cellspacing="0" align="center" style="background:#ffffff;box-shadow:0 4px 40px rgba(0,0,0,0.06);table-layout:fixed;">
   <!-- HEADER -->
   <tr><td style="padding:20px 40px;border-bottom:3px solid ${GOLD};background:#ffffff;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
