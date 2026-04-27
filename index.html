@@ -360,14 +360,14 @@ function PreviewRow({ row, index }) {
       style={{
         display: "flex",
         flexDirection: reversed ? "row-reverse" : "row",
-        height: 280,
+        height: 260,
         borderBottom: "1px solid #edebe6",
       }}
     >
       <div
         style={{
           width: "42%",
-          height: 280,
+          height: 260,
           background: row.imageData ? "none" : placeholderBg,
           flexShrink: 0,
           overflow: "hidden",
@@ -389,7 +389,7 @@ function PreviewRow({ row, index }) {
       <div
         style={{
           width: "58%",
-          padding: "30px 34px",
+          padding: "24px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -401,13 +401,13 @@ function PreviewRow({ row, index }) {
           style={{
             fontFamily: "'Playfair Display', serif",
             fontWeight: 900,
-            fontSize: 28,
+            fontSize: 24,
             textTransform: "uppercase",
-            letterSpacing: 5,
+            letterSpacing: 4,
             color: GOLD_DARK,
-            marginBottom: 6,
+            marginBottom: 4,
             borderBottom: `3px solid ${GOLD}44`,
-            paddingBottom: 6,
+            paddingBottom: 4,
             display: "inline-block",
           }}
         >
@@ -416,9 +416,9 @@ function PreviewRow({ row, index }) {
         <div
           style={{
             fontWeight: 700,
-            fontSize: 13,
+            fontSize: 12,
             color: GOLD_DARK,
-            marginBottom: 10,
+            marginBottom: 8,
             letterSpacing: 0.5,
           }}
         >
@@ -428,19 +428,19 @@ function PreviewRow({ row, index }) {
           style={{
             fontFamily: "'Playfair Display', serif",
             fontWeight: 900,
-            fontSize: 22,
-            lineHeight: 1.2,
+            fontSize: 18,
+            lineHeight: 1.25,
             color: BLACK,
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           {row.title}
         </div>
-        <div style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a", marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 12, color: "#1a1a1a", marginBottom: 6 }}>
           {row.host}
         </div>
         <div
-          style={{ fontSize: 13.5, lineHeight: 1.7, color: "#3d3d3d", marginBottom: 14 }}
+          style={{ fontSize: 13, lineHeight: 1.6, color: "#3d3d3d", marginBottom: 10 }}
         >
           {row.description}
         </div>
@@ -448,7 +448,7 @@ function PreviewRow({ row, index }) {
           <span
             style={{
               fontWeight: 700,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: 2,
               color: GOLD_DARK,
@@ -464,21 +464,18 @@ function PreviewRow({ row, index }) {
 
 /* ───────── GENERATE EMAIL HTML ───────── */
 function generateEmailHTML({ logoData, dateRange, rows, footer }) {
-  /* Fixed pixel dimensions for consistent email rendering.
-     Total width = 720px  →  image col = 302px, text col = 418px.
-     Row height locked at 280px so every event looks identical. */
-  const IMG_W = 302;
-  const TEXT_W = 418;
-  const ROW_H = 280;
+  /* 600px = industry-standard email width.
+     image col = 250px, text col = 350px.
+     Row height locked at 260px so every event looks identical. */
+  const EMAIL_W = 600;
+  const IMG_W = 250;
+  const TEXT_W = 350;
+  const ROW_H = 260;
 
   const rowsHTML = rows
     .map((row, i) => {
       const reversed = i % 2 !== 0;
 
-      /* Image cell: uses background-image + background-size:cover for
-         uniform cropping (works in Gmail, Apple Mail, Yahoo, Outlook.com).
-         Also includes an <img> fallback clipped with overflow:hidden for
-         clients that strip background styles. */
       const imgCell = row.imageData
         ? `<td width="${IMG_W}" height="${ROW_H}" style="width:${IMG_W}px;height:${ROW_H}px;padding:0;vertical-align:top;background-image:url('${row.imageData}');background-size:cover;background-position:center center;background-repeat:no-repeat;">
             <!--[if gte mso 9]>
@@ -493,16 +490,16 @@ function generateEmailHTML({ logoData, dateRange, rows, footer }) {
         : `<td width="${IMG_W}" height="${ROW_H}" style="width:${IMG_W}px;height:${ROW_H}px;padding:0;vertical-align:top;background:linear-gradient(135deg,${GOLD}33,${GOLD}11);"></td>`;
 
       const borderSide = reversed ? "border-right" : "border-left";
-      const textCell = `<td width="${TEXT_W}" style="width:${TEXT_W}px;padding:30px 34px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
-        <div style="font-weight:900;font-size:28px;text-transform:uppercase;letter-spacing:5px;color:${GOLD_DARK};margin-bottom:6px;font-family:Georgia,serif;border-bottom:3px solid ${GOLD}44;padding-bottom:6px;">${row.day}</div>
-        <div style="font-weight:700;font-size:13px;color:${GOLD_DARK};margin-bottom:10px;">${row.time}</div>
-        <div style="font-weight:900;font-size:22px;line-height:1.2;color:${BLACK};margin-bottom:10px;font-family:Georgia,serif;">${row.title}</div>
-        <div style="font-weight:700;font-size:13px;color:#1a1a1a;margin-bottom:8px;">${row.host}</div>
-        <div style="font-size:14px;line-height:1.7;color:#3d3d3d;margin-bottom:14px;">${row.description}</div>
-        ${row.linkText ? `<a href="${row.linkUrl || "#"}" style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:${GOLD_DARK};text-decoration:none;">${row.linkText} →</a>` : ""}
+      const textCell = `<td width="${TEXT_W}" style="width:${TEXT_W}px;padding:24px;vertical-align:middle;${borderSide}:4px solid ${GOLD};">
+        <div style="font-weight:900;font-size:24px;text-transform:uppercase;letter-spacing:4px;color:${GOLD_DARK};margin-bottom:4px;font-family:Georgia,serif;border-bottom:3px solid ${GOLD}44;padding-bottom:4px;">${row.day}</div>
+        <div style="font-weight:700;font-size:12px;color:${GOLD_DARK};margin-bottom:8px;">${row.time}</div>
+        <div style="font-weight:900;font-size:18px;line-height:1.25;color:${BLACK};margin-bottom:8px;font-family:Georgia,serif;">${row.title}</div>
+        <div style="font-weight:700;font-size:12px;color:#1a1a1a;margin-bottom:6px;">${row.host}</div>
+        <div style="font-size:13px;line-height:1.6;color:#3d3d3d;margin-bottom:10px;">${row.description}</div>
+        ${row.linkText ? `<a href="${row.linkUrl || "#"}" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:2px;color:${GOLD_DARK};text-decoration:none;">${row.linkText} →</a>` : ""}
       </td>`;
       const cells = reversed ? textCell + imgCell : imgCell + textCell;
-      return `<tr><td style="padding:0;"><table width="720" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #edebe6;table-layout:fixed;"><tr>${cells}</tr></table></td></tr>`;
+      return `<tr><td style="padding:0;"><table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #edebe6;table-layout:fixed;"><tr>${cells}</tr></table></td></tr>`;
     })
     .join("\n");
 
@@ -512,27 +509,29 @@ function generateEmailHTML({ logoData, dateRange, rows, footer }) {
 <!--[if gte mso 9]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
 </head>
 <body style="margin:0;padding:0;background:#faf8f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-<table width="720" cellpadding="0" cellspacing="0" align="center" style="background:#ffffff;box-shadow:0 4px 40px rgba(0,0,0,0.06);table-layout:fixed;">
+<center>
+<table width="${EMAIL_W}" cellpadding="0" cellspacing="0" align="center" border="0" style="max-width:${EMAIL_W}px;width:100%;background:#ffffff;table-layout:fixed;border-collapse:collapse;">
   <!-- HEADER -->
-  <tr><td style="padding:20px 40px;border-bottom:3px solid ${GOLD};background:#ffffff;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="vertical-align:middle;">${logoData ? `<img src="${logoData}" alt="Myers Home Buyers" style="height:52px;width:auto;" />` : `<span style="font-family:Georgia,serif;font-weight:900;font-size:22px;color:${BLACK};">Myers <span style="color:${GOLD};">Home Buyers</span></span>`}</td>
-      <td style="text-align:right;vertical-align:middle;"><span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#7a7a7a;">Weekly Newsletter</span></td>
+  <tr><td style="padding:16px 24px;border-bottom:3px solid ${GOLD};background:#ffffff;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:middle;">${logoData ? `<img src="${logoData}" alt="Myers Home Buyers" style="height:46px;width:auto;" />` : `<span style="font-family:Georgia,serif;font-weight:900;font-size:20px;color:${BLACK};">Myers <span style="color:${GOLD};">Home Buyers</span></span>`}</td>
+      <td style="text-align:right;vertical-align:middle;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#7a7a7a;">Weekly Newsletter</span></td>
     </tr></table>
   </td></tr>
   <!-- DATE BANNER -->
-  <tr><td style="background:linear-gradient(135deg,${GOLD_DARK},${GOLD},${GOLD_LIGHT});text-align:center;padding:14px 40px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:4px;color:${BLACK};">${dateRange}</td></tr>
+  <tr><td style="background:linear-gradient(135deg,${GOLD_DARK},${GOLD},${GOLD_LIGHT});text-align:center;padding:12px 24px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:3px;color:${BLACK};">${dateRange}</td></tr>
   <!-- ROWS -->
   ${rowsHTML}
   <!-- FOOTER -->
-  <tr><td style="background:${BLACK};padding:28px 40px;border-top:3px solid ${GOLD};">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="color:#ccc;font-size:13px;">📞 ${footer.phone}</td>
-      <td style="color:#ccc;font-size:13px;text-align:center;">🌐 ${footer.website}</td>
-      <td style="color:#ccc;font-size:13px;text-align:right;">✉️ ${footer.email}</td>
+  <tr><td style="background:${BLACK};padding:20px 24px;border-top:3px solid ${GOLD};">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="color:#ccc;font-size:12px;">📞 ${footer.phone}</td>
+      <td style="color:#ccc;font-size:12px;text-align:center;">🌐 ${footer.website}</td>
+      <td style="color:#ccc;font-size:12px;text-align:right;">✉️ ${footer.email}</td>
     </tr></table>
   </td></tr>
 </table>
+</center>
 </body></html>`;
 }
 
@@ -764,7 +763,7 @@ function NewsletterBuilder() {
       </div>
 
       {/* ── CONTENT ── */}
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px 60px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 60px" }}>
         {tab === "edit" ? (
           <>
             {/* Header settings */}
@@ -899,6 +898,8 @@ function NewsletterBuilder() {
           <div
             ref={previewRef}
             style={{
+              maxWidth: 600,
+              margin: "0 auto",
               background: "#fff",
               boxShadow: "0 4px 40px rgba(0,0,0,0.06)",
               borderRadius: 4,
@@ -911,7 +912,7 @@ function NewsletterBuilder() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "20px 40px",
+                padding: "16px 24px",
                 borderBottom: `3px solid ${GOLD}`,
               }}
             >
@@ -920,14 +921,14 @@ function NewsletterBuilder() {
                   <img
                     src={logoData}
                     alt="Logo"
-                    style={{ height: 52, width: "auto" }}
+                    style={{ height: 46, width: "auto" }}
                   />
                 ) : (
                   <span
                     style={{
                       fontFamily: "'Playfair Display', serif",
                       fontWeight: 900,
-                      fontSize: 22,
+                      fontSize: 20,
                       color: BLACK,
                     }}
                   >
@@ -938,10 +939,10 @@ function NewsletterBuilder() {
               </div>
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 700,
                   textTransform: "uppercase",
-                  letterSpacing: 3,
+                  letterSpacing: 2,
                   color: "#7a7a7a",
                 }}
               >
@@ -954,11 +955,11 @@ function NewsletterBuilder() {
               style={{
                 background: `linear-gradient(135deg, ${GOLD_DARK}, ${GOLD}, ${GOLD_LIGHT})`,
                 textAlign: "center",
-                padding: "14px 40px",
+                padding: "12px 24px",
                 fontWeight: 700,
-                fontSize: 13,
+                fontSize: 12,
                 textTransform: "uppercase",
-                letterSpacing: 4,
+                letterSpacing: 3,
                 color: BLACK,
               }}
             >
@@ -974,15 +975,15 @@ function NewsletterBuilder() {
             <div
               style={{
                 background: BLACK,
-                padding: "28px 40px",
+                padding: "20px 24px",
                 display: "flex",
                 justifyContent: "space-between",
                 borderTop: `3px solid ${GOLD}`,
               }}
             >
-              <span style={{ color: "#ccc", fontSize: 13 }}>📞 {footer.phone}</span>
-              <span style={{ color: "#ccc", fontSize: 13 }}>🌐 {footer.website}</span>
-              <span style={{ color: "#ccc", fontSize: 13 }}>✉️ {footer.email}</span>
+              <span style={{ color: "#ccc", fontSize: 12 }}>📞 {footer.phone}</span>
+              <span style={{ color: "#ccc", fontSize: 12 }}>🌐 {footer.website}</span>
+              <span style={{ color: "#ccc", fontSize: 12 }}>✉️ {footer.email}</span>
             </div>
           </div>
         )}
