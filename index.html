@@ -22,7 +22,7 @@
 
 /* ═══════════════ GOOGLE CALENDAR CONFIG ═══════════════ */
 /* Replace PLACEHOLDER_CLIENT_ID with your actual Google OAuth Client ID */
-const GCAL_CLIENT_ID = "128877072229-9bqpsljdu0meg8p8rrdjdm8nhbd3j902.apps.googleusercontent.com";
+const GCAL_CLIENT_ID = "350870752919-6nn8netogufktnj0ii88cmre207te1c5.apps.googleusercontent.com";
 const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly";
 const GCAL_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
 
@@ -306,17 +306,28 @@ const imgTemplates = {
   },
 };
 
-/* ── Photo URL mapping by event type ── */
-const EVENT_PHOTOS = {
-  training: "photos/training.png",
-  social: "photos/social.png",
-  coworking: "photos/coworking.png",
-  strategy: "photos/strategy.png",
-  ama: "photos/ama.png",
-  celebration: "photos/celebration.png",
-  realestate: "photos/realestate.png",
-  poker: "photos/poker.png",
+/* ── Photo URL mapping by event type (multiple variants per category) ── */
+const EVENT_PHOTO_VARIANTS = {
+  training:    ["photos/training.png", "photos/training2.png", "photos/training3.png"],
+  social:      ["photos/social.png", "photos/social2.png"],
+  coworking:   ["photos/coworking.png", "photos/coworking2.png"],
+  strategy:    ["photos/strategy.png", "photos/strategy2.png"],
+  ama:         ["photos/ama.png", "photos/ama2.png"],
+  celebration: ["photos/celebration.png"],
+  realestate:  ["photos/realestate.png", "photos/realestate2.png"],
+  poker:       ["photos/poker.png"],
 };
+
+/* simple string hash to deterministically pick a variant based on event title */
+function hashTitle(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
 
 function pickPhotoCategory(title, desc, host) {
   const text = `${title} ${desc} ${host}`.toLowerCase();
@@ -329,6 +340,13 @@ function pickPhotoCategory(title, desc, host) {
   if (/marketing|pipeline|strategy|brand|distribution/i.test(text)) return "strategy";
   if (/deal|property|house|invest|acquisition/i.test(text)) return "realestate";
   return "training";
+}
+
+function pickPhotoUrl(title, desc, host) {
+  const category = pickPhotoCategory(title, desc, host);
+  const variants = EVENT_PHOTO_VARIANTS[category];
+  const idx = hashTitle(title) % variants.length;
+  return variants[idx];
 }
 
 function loadImage(src) {
@@ -381,8 +399,7 @@ async function generateEventImage(row) {
   const canvas = document.createElement("canvas");
   canvas.width = IMG_GEN_W; canvas.height = IMG_GEN_H;
   const ctx = canvas.getContext("2d");
-  const category = pickPhotoCategory(row.title, row.description, row.host);
-  const photoUrl = EVENT_PHOTOS[category];
+  const photoUrl = pickPhotoUrl(row.title, row.description, row.host);
   try {
     const img = await loadImage(photoUrl);
     /* draw photo to fill canvas (cover) */
