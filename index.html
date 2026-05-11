@@ -306,12 +306,97 @@ const imgTemplates = {
   },
 };
 
-function generateEventImage(row) {
+/* ── Photo URL mapping by event type ── */
+const EVENT_PHOTOS = {
+  training: "photos/training.png",
+  social: "photos/social.png",
+  coworking: "photos/coworking.png",
+  strategy: "photos/strategy.png",
+  ama: "photos/ama.png",
+  celebration: "photos/celebration.png",
+  realestate: "photos/realestate.png",
+  poker: "photos/poker.png",
+};
+
+function pickPhotoCategory(title, desc, host) {
+  const text = `${title} ${desc} ${host}`.toLowerCase();
+  if (/poker/i.test(text)) return "poker";
+  if (/award|celebration|trophy|certificate/i.test(text)) return "celebration";
+  if (/social|legacy|party|happy hour|fireside/i.test(text)) return "social";
+  if (/meet.*work|co-?working|in-?person/i.test(text)) return "coworking";
+  if (/101|201|301|102|training|mastering|course|class|learn|evaluating|contract|close|title/i.test(text)) return "training";
+  if (/ask me|ama|q\s*&\s*a/i.test(text)) return "ama";
+  if (/marketing|pipeline|strategy|brand|distribution/i.test(text)) return "strategy";
+  if (/deal|property|house|invest|acquisition/i.test(text)) return "realestate";
+  return "training";
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load: " + src));
+    img.src = src;
+  });
+}
+
+function drawBrandedOverlay(ctx, w, h, row) {
+  /* dark gradient overlay at bottom */
+  const grad = ctx.createLinearGradient(0, h * 0.35, 0, h);
+  grad.addColorStop(0, "rgba(0,0,0,0)");
+  grad.addColorStop(0.4, "rgba(0,0,0,0.45)");
+  grad.addColorStop(1, "rgba(0,0,0,0.85)");
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+  /* top gold bar */
+  const bar = ctx.createLinearGradient(0, 0, w, 0);
+  bar.addColorStop(0, GOLD_DARK); bar.addColorStop(0.5, GOLD); bar.addColorStop(1, GOLD_DARK);
+  ctx.fillStyle = bar; ctx.fillRect(0, 0, w, 4);
+  /* bottom gold bar */
+  ctx.fillRect(0, h - 4, w, 4);
+  drawGoldCorners(ctx, w, h, 35);
+  /* day pill */
+  const pillText = row.day.toUpperCase();
+  ctx.font = "800 12px Helvetica, sans-serif";
+  const pillW = ctx.measureText(pillText).width + 28;
+  ctx.fillStyle = GOLD;
+  ctx.beginPath(); ctx.roundRect(40, h - 150, pillW, 26, 13); ctx.fill();
+  ctx.fillStyle = BLACK; ctx.textAlign = "left";
+  ctx.fillText(pillText, 54, h - 132);
+  /* time */
+  ctx.font = "600 13px Helvetica, sans-serif";
+  ctx.fillStyle = GOLD_LIGHT; ctx.textAlign = "left";
+  ctx.fillText(row.time, 40 + pillW + 12, h - 132);
+  /* title */
+  ctx.font = "900 28px Georgia, serif"; ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "left";
+  imgWrapText(ctx, row.title, 40, h - 95, w - 80, 34);
+  /* brand */
+  ctx.font = "800 9px Helvetica, sans-serif";
+  ctx.fillStyle = GOLD + "88"; ctx.textAlign = "right";
+  ctx.fillText("MYERS HOME BUYERS", w - 30, h - 18);
+}
+
+async function generateEventImage(row) {
   const canvas = document.createElement("canvas");
   canvas.width = IMG_GEN_W; canvas.height = IMG_GEN_H;
   const ctx = canvas.getContext("2d");
-  const tmpl = pickTemplate(row.title, row.description, row.host);
-  imgTemplates[tmpl](ctx, IMG_GEN_W, IMG_GEN_H, row);
+  const category = pickPhotoCategory(row.title, row.description, row.host);
+  const photoUrl = EVENT_PHOTOS[category];
+  try {
+    const img = await loadImage(photoUrl);
+    /* draw photo to fill canvas (cover) */
+    const scale = Math.max(IMG_GEN_W / img.width, IMG_GEN_H / img.height);
+    const sw = IMG_GEN_W / scale, sh = IMG_GEN_H / scale;
+    const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, IMG_GEN_W, IMG_GEN_H);
+    /* add branded overlay */
+    drawBrandedOverlay(ctx, IMG_GEN_W, IMG_GEN_H, row);
+  } catch {
+    /* fallback to canvas template if photo fails to load */
+    const tmpl = pickTemplate(row.title, row.description, row.host);
+    imgTemplates[tmpl](ctx, IMG_GEN_W, IMG_GEN_H, row);
+  }
   return canvas.toDataURL("image/png");
 }
 
@@ -1122,22 +1207,24 @@ function NewsletterBuilder() {
   };
 
   /* ── Auto-generate images for all events ── */
-  const handleGenerateImages = () => {
-    setRows((prev) =>
-      prev.map((row) => ({
+  const handleGenerateImages = async () => {
+    const updated = await Promise.all(
+      rows.map(async (row) => ({
         ...row,
-        imageData: row.imageData || generateEventImage(row),
+        imageData: row.imageData || (await generateEventImage(row)),
       }))
     );
+    setRows(updated);
   };
 
-  const handleRegenerateAllImages = () => {
-    setRows((prev) =>
-      prev.map((row) => ({
+  const handleRegenerateAllImages = async () => {
+    const updated = await Promise.all(
+      rows.map(async (row) => ({
         ...row,
-        imageData: generateEventImage(row),
+        imageData: await generateEventImage(row),
       }))
     );
+    setRows(updated);
   };
 
   const addRow = () => {
