@@ -9,13 +9,22 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google API Client -->
+  <script src="https://apis.google.com/js/api.js" async defer></script>
   <style>body { margin: 0; padding: 0; }</style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const { useState, useRef, useCallback } = React;
+    const { useState, useRef, useCallback, useEffect } = React;
 
+/* ═══════════════ GOOGLE CALENDAR CONFIG ═══════════════ */
+/* Replace PLACEHOLDER_CLIENT_ID with your actual Google OAuth Client ID */
+const GCAL_CLIENT_ID = "128877072229-9bqpsljdu0meg8p8rrdjdm8nhbd3j902.apps.googleusercontent.com";
+const GCAL_SCOPES = "https://www.googleapis.com/auth/calendar.readonly";
+const GCAL_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
 
 const GOLD = "#D4A843";
 const GOLD_DARK = "#B08A2E";
@@ -115,6 +124,350 @@ const readFileAsDataURL = (file) =>
     r.onload = () => res(r.result);
     r.readAsDataURL(file);
   });
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function getWeekRange(date) {
+  const d = new Date(date);
+  const dayOfWeek = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { start: monday, end: sunday };
+}
+
+function formatWeekLabel(start, end) {
+  const opts = { month: "long", day: "numeric" };
+  const startStr = start.toLocaleDateString("en-US", opts);
+  const endStr = end.toLocaleDateString("en-US", { ...opts, year: "numeric" });
+  return `Week of ${startStr} \u2013 ${endStr}`;
+}
+
+function formatEventTime(startStr, endStr) {
+  const s = new Date(startStr);
+  const e = new Date(endStr);
+  const fmt = (d) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${fmt(s)} \u2013 ${fmt(e)}`;
+}
+
+/* ───────── CALENDAR IMPORT MODAL ───────── */
+function CalendarImportModal({ isOpen, onClose, onImport }) {
+  const [step, setStep] = useState("loading"); // loading | pickCalendar | pickWeek | importing | error
+  const [calendars, setCalendars] = useState([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState("");
+  const [selectedCalendarName, setSelectedCalendarName] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = this week, 1 = next week, etc.
+  const [errorMsg, setErrorMsg] = useState("");
+  const tokenClientRef = useRef(null);
+  const gapiInitedRef = useRef(false);
+
+  /* helper to get monday of a given week offset */
+  const getWeekDates = (offset) => {
+    const now = new Date();
+    const shifted = new Date(now);
+    shifted.setDate(now.getDate() + offset * 7);
+    return getWeekRange(shifted);
+  };
+
+  const weekDates = getWeekDates(weekOffset);
+  const weekLabel = formatWeekLabel(weekDates.start, weekDates.end);
+
+  /* initialize GAPI and GIS */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    async function initGapi() {
+      if (gapiInitedRef.current) {
+        requestToken();
+        return;
+      }
+      await new Promise((resolve, reject) => {
+        if (typeof gapi === "undefined") {
+          reject(new Error("Google API not loaded"));
+          return;
+        }
+        gapi.load("client", { callback: resolve, onerror: reject });
+      });
+      await gapi.client.init({});
+      await gapi.client.load(GCAL_DISCOVERY_DOC);
+      gapiInitedRef.current = true;
+      if (!cancelled) requestToken();
+    }
+
+    function requestToken() {
+      if (typeof google === "undefined" || !google.accounts) {
+        setStep("error");
+        setErrorMsg("Google Identity Services not loaded. Please refresh and try again.");
+        return;
+      }
+      tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+        client_id: GCAL_CLIENT_ID,
+        scope: GCAL_SCOPES,
+        callback: async (resp) => {
+          if (resp.error) {
+            setStep("error");
+            setErrorMsg(`Auth error: ${resp.error}`);
+            return;
+          }
+          /* fetch calendar list */
+          try {
+            const res = await gapi.client.calendar.calendarList.list();
+            const cals = res.result.items || [];
+            if (!cancelled) {
+              setCalendars(cals);
+              setStep("pickCalendar");
+            }
+          } catch (err) {
+            if (!cancelled) {
+              setStep("error");
+              setErrorMsg("Failed to load calendars: " + (err.message || err));
+            }
+          }
+        },
+      });
+
+      /* check if we already have a valid token */
+      const token = gapi.client.getToken();
+      if (token) {
+        /* already signed in, just fetch calendars */
+        (async () => {
+          try {
+            const res = await gapi.client.calendar.calendarList.list();
+            const cals = res.result.items || [];
+            if (!cancelled) {
+              setCalendars(cals);
+              setStep("pickCalendar");
+            }
+          } catch {
+            tokenClientRef.current.requestAccessToken();
+          }
+        })();
+      } else {
+        tokenClientRef.current.requestAccessToken();
+      }
+    }
+
+    setStep("loading");
+    initGapi().catch((err) => {
+      if (!cancelled) {
+        setStep("error");
+        setErrorMsg("Failed to initialize: " + (err.message || err));
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
+  /* fetch events for selected calendar + week */
+  const handleImport = async () => {
+    setStep("importing");
+    try {
+      const { start, end } = getWeekDates(weekOffset);
+      const res = await gapi.client.calendar.events.list({
+        calendarId: selectedCalendarId,
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        singleEvents: true,
+        orderBy: "startTime",
+        maxResults: 50,
+      });
+
+      const events = (res.result.items || []).filter(
+        (ev) => ev.start && (ev.start.dateTime || ev.start.date)
+      );
+
+      const rows = events.map((ev, i) => {
+        const isAllDay = !ev.start.dateTime;
+        const startDt = new Date(ev.start.dateTime || ev.start.date);
+        const endDt = new Date(ev.end.dateTime || ev.end.date);
+        const day = DAY_NAMES[startDt.getDay()];
+        const time = isAllDay ? "All Day" : formatEventTime(ev.start.dateTime, ev.end.dateTime);
+
+        return {
+          id: Date.now() + i,
+          day,
+          time,
+          title: ev.summary || "Untitled Event",
+          host: ev.organizer?.displayName || ev.creator?.displayName || selectedCalendarName || "",
+          description: ev.location
+            ? (ev.description ? `${ev.location}\n${ev.description}` : ev.location)
+            : (ev.description || ""),
+          linkText: ev.hangoutLink ? "Join Google Meet" : "",
+          linkUrl: ev.hangoutLink || "#",
+          imageData: null,
+        };
+      });
+
+      onImport(rows, formatWeekLabel(start, end));
+      onClose();
+    } catch (err) {
+      setStep("error");
+      setErrorMsg("Failed to fetch events: " + (err.message || err));
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const overlayStyle = {
+    position: "fixed", inset: 0, zIndex: 9999,
+    background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  };
+  const modalStyle = {
+    background: "#fff", borderRadius: 14, padding: "32px 28px",
+    width: 440, maxWidth: "92vw", boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+    position: "relative", fontFamily: "'DM Sans', sans-serif",
+  };
+  const headingStyle = {
+    fontFamily: "'Playfair Display', serif", fontWeight: 900,
+    fontSize: 22, color: BLACK, marginBottom: 6,
+  };
+  const subStyle = {
+    fontSize: 13, color: "#888", marginBottom: 20, lineHeight: 1.5,
+  };
+  const btnPrimary = {
+    background: `linear-gradient(135deg, ${GOLD_DARK}, ${GOLD})`,
+    color: BLACK, border: "none", padding: "10px 24px", borderRadius: 8,
+    fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 0.5,
+    width: "100%", marginTop: 8,
+  };
+  const btnSecondary = {
+    background: "none", border: `1px solid #ddd`, padding: "8px 16px",
+    borderRadius: 6, fontWeight: 600, fontSize: 12, cursor: "pointer",
+    color: "#666", marginTop: 8,
+  };
+  const closeBtn = {
+    position: "absolute", top: 14, right: 14, background: "none",
+    border: "none", fontSize: 22, cursor: "pointer", color: "#aaa",
+    lineHeight: 1,
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <button style={closeBtn} onClick={onClose}>×</button>
+
+        {step === "loading" && (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <div style={{
+              width: 40, height: 40, border: `3px solid #eee`,
+              borderTopColor: GOLD, borderRadius: "50%",
+              animation: "spin 0.8s linear infinite", margin: "0 auto 16px",
+            }} />
+            <div style={{ color: "#888", fontSize: 14 }}>Connecting to Google Calendar...</div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {step === "pickCalendar" && (
+          <>
+            <div style={headingStyle}>📅 Select Calendar</div>
+            <div style={subStyle}>Choose which calendar to import events from.</div>
+            <div style={{ maxHeight: 280, overflowY: "auto", marginBottom: 12 }}>
+              {calendars.map((cal) => (
+                <div
+                  key={cal.id}
+                  onClick={() => { setSelectedCalendarId(cal.id); setSelectedCalendarName(cal.summary); }}
+                  style={{
+                    padding: "12px 14px", borderRadius: 8, cursor: "pointer",
+                    marginBottom: 6, transition: "all 0.15s",
+                    border: selectedCalendarId === cal.id ? `2px solid ${GOLD}` : "2px solid #f0eee8",
+                    background: selectedCalendarId === cal.id ? `${GOLD}11` : "#faf8f4",
+                    display: "flex", alignItems: "center", gap: 10,
+                  }}
+                >
+                  <div style={{
+                    width: 14, height: 14, borderRadius: 3, flexShrink: 0,
+                    background: cal.backgroundColor || GOLD,
+                  }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: BLACK }}>{cal.summary}</div>
+                    {cal.description && (
+                      <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{cal.description}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              style={{ ...btnPrimary, opacity: selectedCalendarId ? 1 : 0.4 }}
+              disabled={!selectedCalendarId}
+              onClick={() => setStep("pickWeek")}
+            >
+              Continue →
+            </button>
+          </>
+        )}
+
+        {step === "pickWeek" && (
+          <>
+            <div style={headingStyle}>📆 Select Week</div>
+            <div style={subStyle}>
+              Importing from: <strong>{selectedCalendarName}</strong>
+            </div>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 16, padding: "20px 0",
+            }}>
+              <button
+                onClick={() => setWeekOffset((w) => w - 1)}
+                style={{ ...btnSecondary, fontSize: 18, padding: "4px 14px", marginTop: 0 }}
+              >
+                ←
+              </button>
+              <div style={{ textAlign: "center", minWidth: 200 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: BLACK }}>{weekLabel}</div>
+                <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>
+                  {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : weekOffset === -1 ? "Last week" : `${Math.abs(weekOffset)} weeks ${weekOffset > 0 ? "from now" : "ago"}`}
+                </div>
+              </div>
+              <button
+                onClick={() => setWeekOffset((w) => w + 1)}
+                style={{ ...btnSecondary, fontSize: 18, padding: "4px 14px", marginTop: 0 }}
+              >
+                →
+              </button>
+            </div>
+            <button style={btnPrimary} onClick={handleImport}>
+              📅 Import Events
+            </button>
+            <button
+              style={{ ...btnSecondary, width: "100%", textAlign: "center" }}
+              onClick={() => setStep("pickCalendar")}
+            >
+              ← Back to calendar list
+            </button>
+          </>
+        )}
+
+        {step === "importing" && (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <div style={{
+              width: 40, height: 40, border: `3px solid #eee`,
+              borderTopColor: GOLD, borderRadius: "50%",
+              animation: "spin 0.8s linear infinite", margin: "0 auto 16px",
+            }} />
+            <div style={{ color: "#888", fontSize: 14 }}>Fetching events for {weekLabel}...</div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {step === "error" && (
+          <>
+            <div style={headingStyle}>⚠️ Something went wrong</div>
+            <div style={{ ...subStyle, color: "#c44" }}>{errorMsg}</div>
+            <button style={btnPrimary} onClick={onClose}>Close</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ───────── IMAGE UPLOAD BOX (with Drag & Drop) ───────── */
 function ImageUpload({ imageData, onUpload, label }) {
@@ -553,6 +906,7 @@ function NewsletterBuilder() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const [calModalOpen, setCalModalOpen] = useState(false);
   const previewRef = useRef();
   let nextId = useRef(10);
 
@@ -568,6 +922,13 @@ function NewsletterBuilder() {
       newRows.splice(idx + 1, 0, clone);
       return newRows;
     });
+  };
+
+  /* ── Calendar import handler ── */
+  const handleCalendarImport = (importedRows, weekLabel) => {
+    setRows(importedRows);
+    setDateRange(weekLabel);
+    setTab("edit");
   };
   const addRow = () => {
     setRows((r) => [
@@ -702,6 +1063,25 @@ function NewsletterBuilder() {
           </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setCalModalOpen(true)}
+            style={{
+              background: "none",
+              color: GOLD_DARK,
+              border: `1px solid ${GOLD}`,
+              padding: "8px 16px",
+              borderRadius: 6,
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              letterSpacing: 0.5,
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.target.style.background = GOLD; e.target.style.color = BLACK; }}
+            onMouseLeave={(e) => { e.target.style.background = 'none'; e.target.style.color = GOLD_DARK; }}
+          >
+            📅 Import from Calendar
+          </button>
           <button
             onClick={handleCopyRendered}
             style={{
@@ -995,6 +1375,13 @@ function NewsletterBuilder() {
           </div>
         )}
       </div>
+
+      {/* ── Calendar Import Modal ── */}
+      <CalendarImportModal
+        isOpen={calModalOpen}
+        onClose={() => setCalModalOpen(false)}
+        onImport={handleCalendarImport}
+      />
     </div>
   );
 }
