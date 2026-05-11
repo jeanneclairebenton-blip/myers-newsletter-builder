@@ -125,6 +125,196 @@ const readFileAsDataURL = (file) =>
     r.readAsDataURL(file);
   });
 
+/* ═══════════════ PREMIUM EVENT IMAGE GENERATOR ═══════════════ */
+const IMG_GEN_W = 800;
+const IMG_GEN_H = 520;
+
+function pickTemplate(title, description, host) {
+  const text = `${title} ${description} ${host}`.toLowerCase();
+  if (/poker|social|happy hour|party|legacy|celebration|baby shower|fireside/i.test(text)) return "spotlight";
+  if (/meet.*work|co-?working|in-?person/i.test(text)) return "network";
+  if (/101|201|301|102|training|mastering|course|class|learn/i.test(text)) return "blueprint";
+  if (/ask me|ama|q\s*&\s*a/i.test(text)) return "prestige";
+  if (/marketing|pipeline|strategy|brand|distribution/i.test(text)) return "noir";
+  return "executive";
+}
+
+function drawGoldCorners(ctx, w, h, size) {
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 2.5;
+  const s = size;
+  ctx.beginPath(); ctx.moveTo(24, 24+s); ctx.lineTo(24, 24); ctx.lineTo(24+s, 24); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w-24-s, 24); ctx.lineTo(w-24, 24); ctx.lineTo(w-24, 24+s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(24, h-24-s); ctx.lineTo(24, h-24); ctx.lineTo(24+s, h-24); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w-24-s, h-24); ctx.lineTo(w-24, h-24); ctx.lineTo(w-24, h-24-s); ctx.stroke();
+}
+
+function drawDiamondPattern(ctx, w, h, color, spacing, sz) {
+  ctx.strokeStyle = color; ctx.lineWidth = 0.5;
+  for (let x = 0; x < w; x += spacing) {
+    for (let y = 0; y < h; y += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(x, y-sz); ctx.lineTo(x+sz, y); ctx.lineTo(x, y+sz); ctx.lineTo(x-sz, y);
+      ctx.closePath(); ctx.stroke();
+    }
+  }
+}
+
+function drawNetworkDots(ctx, w, h) {
+  const dots = [];
+  for (let i = 0; i < 35; i++) dots.push({x: Math.random()*w, y: Math.random()*h, r: Math.random()*2.5+1});
+  ctx.strokeStyle = GOLD+"18"; ctx.lineWidth = 0.8;
+  for (let i = 0; i < dots.length; i++) {
+    for (let j = i+1; j < dots.length; j++) {
+      const dx = dots[i].x-dots[j].x, dy = dots[i].y-dots[j].y;
+      if (Math.sqrt(dx*dx+dy*dy) < 160) { ctx.beginPath(); ctx.moveTo(dots[i].x, dots[i].y); ctx.lineTo(dots[j].x, dots[j].y); ctx.stroke(); }
+    }
+  }
+  dots.forEach(d => { ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fillStyle = GOLD+"40"; ctx.fill(); });
+}
+
+function imgWrapText(ctx, text, x, y, maxW, lh) {
+  const words = text.split(' '); let line = ''; let lines = [];
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + ' ';
+    if (ctx.measureText(test).width > maxW && n > 0) { lines.push(line.trim()); line = words[n]+' '; }
+    else { line = test; }
+  }
+  lines.push(line.trim());
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i*lh));
+  return lines.length;
+}
+
+const imgTemplates = {
+  executive(ctx, w, h, row) {
+    const bg = ctx.createLinearGradient(0,0,w,h);
+    bg.addColorStop(0,"#0d0d0d"); bg.addColorStop(0.5,"#1a1915"); bg.addColorStop(1,"#0d0d0d");
+    ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
+    drawDiamondPattern(ctx, w, h, GOLD+"08", 48, 12);
+    const bar = ctx.createLinearGradient(0,0,w,0);
+    bar.addColorStop(0, GOLD_DARK); bar.addColorStop(0.5, GOLD); bar.addColorStop(1, GOLD_DARK);
+    ctx.fillStyle = bar; ctx.fillRect(0,0,w,5); ctx.fillRect(0,h-5,w,5);
+    drawGoldCorners(ctx, w, h, 50);
+    ctx.save(); ctx.globalAlpha=0.04; ctx.font="900 120px Georgia,serif"; ctx.fillStyle=GOLD;
+    ctx.textAlign="center"; ctx.fillText("MYERS", w/2, h/2+40); ctx.restore();
+    ctx.font="700 13px Helvetica,sans-serif"; ctx.fillStyle=GOLD; ctx.textAlign="center";
+    ctx.fillText((row.day+"  \u2022  "+row.time).toUpperCase(), w/2, 70);
+    ctx.strokeStyle=GOLD+"44"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(w/2-120,88); ctx.lineTo(w/2+120,88); ctx.stroke();
+    ctx.fillStyle=GOLD; ctx.save(); ctx.translate(w/2,88); ctx.rotate(Math.PI/4); ctx.fillRect(-4,-4,8,8); ctx.restore();
+    ctx.font="900 38px Georgia,serif"; ctx.fillStyle="#fff"; ctx.textAlign="center";
+    const ln = imgWrapText(ctx, row.title, w/2, h/2-30, w-120, 50);
+    ctx.font="600 14px Helvetica,sans-serif"; ctx.fillStyle=GOLD_LIGHT; ctx.fillText(row.host, w/2, h/2-30+ln*50+30);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"88"; ctx.fillText("MYERS HOME BUYERS", w/2, h-36);
+  },
+
+  spotlight(ctx, w, h, row) {
+    ctx.fillStyle="#0a0a0a"; ctx.fillRect(0,0,w,h);
+    const glow = ctx.createRadialGradient(w/2, h*0.35, 30, w/2, h*0.35, w*0.55);
+    glow.addColorStop(0, GOLD+"30"); glow.addColorStop(0.4, GOLD+"10"); glow.addColorStop(1, "transparent");
+    ctx.fillStyle=glow; ctx.fillRect(0,0,w,h);
+    ctx.save(); ctx.globalAlpha=0.03;
+    for (let i=0; i<8; i++) { const y=80+i*55; const g=ctx.createLinearGradient(0,y,w,y); g.addColorStop(0,"transparent"); g.addColorStop(0.5,GOLD); g.addColorStop(1,"transparent"); ctx.fillStyle=g; ctx.fillRect(0,y,w,1); }
+    ctx.restore();
+    drawGoldCorners(ctx, w, h, 40);
+    ctx.font="900 44px Georgia,serif"; ctx.fillStyle="#fff"; ctx.textAlign="center";
+    const ln = imgWrapText(ctx, row.title, w/2, h/2-40, w-100, 56);
+    const pillText = (row.day+"  \u2022  "+row.time).toUpperCase();
+    ctx.font="700 12px Helvetica,sans-serif";
+    const pillW = ctx.measureText(pillText).width+40;
+    const pillY = h/2-40+ln*56+20;
+    ctx.fillStyle=GOLD; ctx.beginPath(); ctx.roundRect(w/2-pillW/2, pillY, pillW, 30, 15); ctx.fill();
+    ctx.fillStyle=BLACK; ctx.textAlign="center"; ctx.fillText(pillText, w/2, pillY+20);
+    ctx.font="500 13px Helvetica,sans-serif"; ctx.fillStyle="#999"; ctx.fillText(row.host, w/2, pillY+58);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"66"; ctx.fillText("MYERS HOME BUYERS", w/2, h-30);
+  },
+
+  network(ctx, w, h, row) {
+    const bg = ctx.createLinearGradient(0,0,0,h);
+    bg.addColorStop(0,"#111"); bg.addColorStop(1,"#1a1815");
+    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    drawNetworkDots(ctx, w, h);
+    ctx.fillStyle=GOLD; ctx.fillRect(50,60,4,h-120);
+    ctx.font="800 11px Helvetica,sans-serif"; ctx.fillStyle=GOLD; ctx.textAlign="left";
+    ctx.fillText(row.day.toUpperCase(), 74, 85);
+    ctx.font="500 11px Helvetica,sans-serif"; ctx.fillStyle="#888"; ctx.fillText(row.time, 74, 104);
+    ctx.font="900 36px Georgia,serif"; ctx.fillStyle="#fff"; ctx.textAlign="left";
+    imgWrapText(ctx, row.title, 74, 190, w-160, 48);
+    ctx.font="600 14px Helvetica,sans-serif"; ctx.fillStyle=GOLD_LIGHT; ctx.fillText(row.host, 74, h-80);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"55"; ctx.textAlign="right";
+    ctx.fillText("MYERS HOME BUYERS", w-50, h-30);
+    drawGoldCorners(ctx, w, h, 35);
+  },
+
+  blueprint(ctx, w, h, row) {
+    ctx.fillStyle="#0c1420"; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle=GOLD+"0a"; ctx.lineWidth=0.5;
+    for (let x=0; x<w; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y=0; y<h; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    const strip = ctx.createLinearGradient(0,0,w,0);
+    strip.addColorStop(0,"transparent"); strip.addColorStop(0.3,GOLD); strip.addColorStop(0.7,GOLD); strip.addColorStop(1,"transparent");
+    ctx.fillStyle=strip; ctx.fillRect(0,0,w,3);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD; ctx.textAlign="left";
+    ctx.fillText("\u25b8 TRAINING & EDUCATION", 50, 55);
+    ctx.font="600 12px Helvetica,sans-serif"; ctx.fillStyle="#667";
+    ctx.fillText(row.day.toUpperCase()+"  |  "+row.time, 50, 80);
+    ctx.font="900 34px Georgia,serif"; ctx.fillStyle="#e8e8e8";
+    imgWrapText(ctx, row.title, 50, 170, w-100, 46);
+    ctx.strokeStyle=GOLD+"44"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(50,h-100); ctx.lineTo(w-50,h-100); ctx.stroke();
+    ctx.font="600 13px Helvetica,sans-serif"; ctx.fillStyle=GOLD_LIGHT; ctx.fillText(row.host, 50, h-72);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"44"; ctx.textAlign="right";
+    ctx.fillText("MYERS HOME BUYERS", w-50, h-28);
+  },
+
+  prestige(ctx, w, h, row) {
+    const bg = ctx.createLinearGradient(0,0,w,h);
+    bg.addColorStop(0,"#161412"); bg.addColorStop(1,"#1e1a16");
+    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle=GOLD+"33"; ctx.lineWidth=1;
+    ctx.strokeRect(20,20,w-40,h-40); ctx.strokeRect(28,28,w-56,h-56);
+    ctx.fillStyle=GOLD; ctx.beginPath();
+    ctx.moveTo(w/2,15); ctx.lineTo(w/2+6,25); ctx.lineTo(w/2,35); ctx.lineTo(w/2-6,25); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=GOLD+"55"; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(w/2-100,45); ctx.lineTo(w/2+100,45); ctx.stroke();
+    ctx.font="700 12px Helvetica,sans-serif"; ctx.fillStyle=GOLD; ctx.textAlign="center";
+    ctx.fillText(row.day.toUpperCase()+"  \u00b7  "+row.time, w/2, 75);
+    ctx.font="900 40px Georgia,serif"; ctx.fillStyle="#fff";
+    const ln = imgWrapText(ctx, row.title, w/2, h/2-20, w-140, 52);
+    const sepY = h/2-20+ln*52+15;
+    ctx.strokeStyle=GOLD; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(w/2-40,sepY); ctx.lineTo(w/2+40,sepY); ctx.stroke();
+    ctx.fillStyle=GOLD; ctx.beginPath(); ctx.arc(w/2,sepY,3,0,Math.PI*2); ctx.fill();
+    ctx.font="italic 500 15px Georgia,serif"; ctx.fillStyle=GOLD_LIGHT; ctx.fillText("with "+row.host, w/2, sepY+35);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"55"; ctx.fillText("MYERS HOME BUYERS", w/2, h-30);
+  },
+
+  noir(ctx, w, h, row) {
+    const bg = ctx.createLinearGradient(0,0,w,h);
+    bg.addColorStop(0,"#0f0f0f"); bg.addColorStop(0.6,"#1a160e"); bg.addColorStop(1,"#0a0a08");
+    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    const glow = ctx.createRadialGradient(w*0.8, h*0.3, 10, w*0.8, h*0.3, 250);
+    glow.addColorStop(0, GOLD+"12"); glow.addColorStop(1, "transparent");
+    ctx.fillStyle=glow; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle=GOLD; ctx.fillRect(w-8,60,3,h-120);
+    ctx.save(); ctx.globalAlpha=0.025; ctx.strokeStyle=GOLD; ctx.lineWidth=1;
+    for (let i=-h; i<w+h; i+=60) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+h,h); ctx.stroke(); }
+    ctx.restore();
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD; ctx.textAlign="left";
+    ctx.fillText("\u25b8 STRATEGY SESSION", 50, 60);
+    ctx.font="500 12px Helvetica,sans-serif"; ctx.fillStyle="#777"; ctx.fillText(row.day+"  |  "+row.time, 50, 84);
+    ctx.font="900 36px Georgia,serif"; ctx.fillStyle="#f0ece4";
+    imgWrapText(ctx, row.title, 50, 180, w-140, 48);
+    ctx.font="600 14px Helvetica,sans-serif"; ctx.fillStyle=GOLD_LIGHT; ctx.fillText(row.host, 50, h-70);
+    ctx.font="800 10px Helvetica,sans-serif"; ctx.fillStyle=GOLD+"44"; ctx.textAlign="right";
+    ctx.fillText("MYERS HOME BUYERS", w-50, h-28);
+  },
+};
+
+function generateEventImage(row) {
+  const canvas = document.createElement("canvas");
+  canvas.width = IMG_GEN_W; canvas.height = IMG_GEN_H;
+  const ctx = canvas.getContext("2d");
+  const tmpl = pickTemplate(row.title, row.description, row.host);
+  imgTemplates[tmpl](ctx, IMG_GEN_W, IMG_GEN_H, row);
+  return canvas.toDataURL("image/png");
+}
+
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function getWeekRange(date) {
@@ -930,6 +1120,26 @@ function NewsletterBuilder() {
     setDateRange(weekLabel);
     setTab("edit");
   };
+
+  /* ── Auto-generate images for all events ── */
+  const handleGenerateImages = () => {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        imageData: row.imageData || generateEventImage(row),
+      }))
+    );
+  };
+
+  const handleRegenerateAllImages = () => {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        imageData: generateEventImage(row),
+      }))
+    );
+  };
+
   const addRow = () => {
     setRows((r) => [
       ...r,
@@ -1080,7 +1290,27 @@ function NewsletterBuilder() {
             onMouseEnter={(e) => { e.target.style.background = GOLD; e.target.style.color = BLACK; }}
             onMouseLeave={(e) => { e.target.style.background = 'none'; e.target.style.color = GOLD_DARK; }}
           >
-            📅 Import from Calendar
+            📅 Import Calendar
+          </button>
+          <button
+            onClick={(e) => { if (e.shiftKey) handleRegenerateAllImages(); else handleGenerateImages(); }}
+            style={{
+              background: "none",
+              color: GOLD_DARK,
+              border: `1px solid ${GOLD}`,
+              padding: "8px 16px",
+              borderRadius: 6,
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              letterSpacing: 0.5,
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.target.style.background = GOLD; e.target.style.color = BLACK; }}
+            onMouseLeave={(e) => { e.target.style.background = 'none'; e.target.style.color = GOLD_DARK; }}
+            title="Generate pro images for empty slots. Shift+Click to regenerate ALL."
+          >
+            🎨 Generate Images
           </button>
           <button
             onClick={handleCopyRendered}
